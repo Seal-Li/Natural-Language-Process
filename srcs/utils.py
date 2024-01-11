@@ -1,69 +1,64 @@
 import os
-import string
-import math
 from collections import Counter
-from nltk.tokenize import word_tokenize
+import nltk
 
-from config import const
+import config
+nltk.download('punkt')
 
 
-def load_documents(directory):
-    documents = []
+def tokenize_sentences_in_files(directory):
+    # 新列表，用于存储所有句子的分词结果
+    all_sentences_tokens = []
+
+    # 遍历文件夹下的所有文件
     for filename in os.listdir(directory):
         if filename.endswith('.txt'):
             file_path = os.path.join(directory, filename)
-
-            # 对文档进行分词处理
+            
+            # 读取文本文件
             with open(file_path, 'r', encoding='utf-8') as file:
-                text = file.read().translate(str.maketrans('', '', string.punctuation)).lower()
-                documents.append(word_tokenize(text))
-    return documents
-
-
-def compute_term_frequency(documents):
-    term_frequency = Counter()
-    for document in documents:
-        term_frequency.update(document)
-    return term_frequency
-
-
-def compute_inverse_document_frequency(documents):
-    N = len(documents)
-    idf = {}
-    df = Counter()
-
-    # 计算每一个词的文档频率（DF）
-    for document in documents:
-        # 对于每个文档，我们只关心一个词是否出现，而不是出现了多少次，所以用set进行去重
-        df.update(set(document))
+                text = file.read()
+                # 使用nltk对文本进行分句
+                sentences = nltk.sent_tokenize(text)
+                
+                # 对每个句子进行分词
+                for sentence in sentences:
+                    words = nltk.word_tokenize(sentence)
+                    all_sentences_tokens.append(words)
     
-    # 计算每一个词的逆文档频率（IDF）
-    for term, count in df.items():
-        idf[term] = math.log(N / (1 + count))
-    
-    return idf
+    return all_sentences_tokens
 
 
-def build_encoder_dict(documents):
-    # 计算总的词频
-    total_term_frequency = compute_term_frequency(documents)
+def calculate_word_frequencies(tokens):
+    frequency_dict = Counter(tokens)
+    total_words = sum(frequency_dict.values())
+    return frequency_dict, total_words
 
-    # 按词频从高到低排序
-    sorted_terms = sorted(total_term_frequency.items(), key=lambda item: item[1], reverse=True)
 
-    # 获取所有的单词，并从0开始编码
-    encoder_dict = {term: i for i, (term, _) in enumerate(sorted_terms)}
-
+def build_encoder_dict(frequency_dict, special_chars=['<pad>', '<unk>']):
+    # 添加特殊字符
+    words = special_chars + list(frequency_dict.keys())
+    # 创建编码字典
+    encoder_dict = {word: i for i, word in enumerate(words)}
     return encoder_dict
 
 
-if __name__ == "__main__":
-    args = const.argparser()
-    documents = load_documents(args.directory)
-    term_frequency = compute_term_frequency(documents)
-    inverse_document_frequency = compute_inverse_document_frequency(documents)
-    encoder_dict = build_encoder_dict(documents)
+def build_decoder_dict(encoder_dict):
+    # 利用编码字典创建解码字典
+    decoder_dict = {i: word for word, i in encoder_dict.items()}
+    return decoder_dict
 
-    print("Term Frequency:", term_frequency)
-    print("Inverse Document Frequency:", inverse_document_frequency)
-    print("Vocabulary Encoder Dictionary:", encoder_dict)
+if __name__ == "__main__":
+    args = config.argparser()
+
+    # 获取所有的句子tokens
+    sentences_tokens = tokenize_sentences_in_files(args.directory) 
+
+    # 将所有句子tokens转变为一个大的tokens列表
+    tokens = [token for sentence in sentences_tokens for token in sentence]
+    # 计算词频和总词数
+    frequency_dict, total_words = calculate_word_frequencies(tokens)
+    # 创建编码和解码字典
+    encoder_dict = build_encoder_dict(frequency_dict)
+    decoder_dict = build_decoder_dict(encoder_dict)
+    print(encoder_dict)
