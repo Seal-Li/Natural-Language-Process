@@ -1,3 +1,4 @@
+import itertools
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
@@ -9,19 +10,18 @@ class SkipGramDataset(Dataset):
     def __init__(self, sentences, word2index, window_size=3, num_neg_samples=10):
         self.window_size = window_size
         self.num_neg_samples = num_neg_samples
-        
-        self.word_counts = torch.ones(len(word2index), dtype=torch.float32)  # 先假设所有单词次数均为1
-        
+
+        self.word_counts = torch.ones(len(word2index), dtype=torch.float32)  # 所有单词次数均为1
+
         # 获取训练的数据对
         data = []
         for sentence in sentences:
             indices = [word2index[word] for word in sentence]
-            for center in range(len(indices)):
-                for offset in range(-window_size, window_size + 1):
-                    context = center + offset
-                    if context < 0 or context >= len(indices) or context == center:
-                        continue
-                    data.append((indices[center], indices[context]))
+            for center, offset in itertools.product(range(len(indices)), range(-window_size, window_size + 1)):
+                context = center + offset
+                if context < 0 or context >= len(indices) or context == center:
+                    continue
+                data.append((indices[center], indices[context]))
         self.data = data
 
     def __len__(self):

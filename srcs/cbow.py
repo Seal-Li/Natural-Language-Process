@@ -14,10 +14,13 @@ class CBOWDataset(Dataset):
         for sentence in sentences:
             indices = [word2index[word] for word in sentence]
             for center in range(len(indices)):
-                context = []
-                for offset in range(-window_size, window_size + 1):
-                    if offset != 0:  # Skip the center word
-                        context.append(indices[center + offset] if 0 <= center + offset < len(indices) else word2index['<pad>'])
+                context = [
+                    indices[center + offset]
+                    if 0 <= center + offset < len(indices)
+                    else word2index['<pad>']
+                    for offset in range(-window_size, window_size + 1)
+                    if offset != 0
+                ]
                 data.append((context, indices[center]))
         self.data = data
 
