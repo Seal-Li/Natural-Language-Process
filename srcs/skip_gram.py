@@ -57,7 +57,7 @@ class SkipGramModel(nn.Module):
         return -(correct_log_bdot + incorrect_bdot.sum(1))
 
 
-def train(model, dataloader, epochs, lr=0.001):
+def train(model, dataloader, epochs, lr=0.001, log_every=100):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     model.train()
 
@@ -76,10 +76,9 @@ def train(model, dataloader, epochs, lr=0.001):
             total_loss += current_loss
             hundred_batch_loss += current_loss
 
-            # 每100个batches打印一次平均损失
-            if (i+1) % 100 == 0:
-                avg_hundred_batch_loss = hundred_batch_loss / 100
-                print(f'Average loss for last 100 batches: {avg_hundred_batch_loss}')
+            if (i+1) % log_every == 0:
+                avg_hundred_batch_loss = hundred_batch_loss / log_every
+                print(f'Average loss for {i+1} 100 batches: {avg_hundred_batch_loss}')
                 hundred_batch_loss = 0.0 # 重置hundred_batch_loss
 
         avg_epoch_loss = total_loss / len(dataloader)
@@ -96,16 +95,15 @@ if __name__ == "__main__":
     decoder_dict = utils.build_decoder_dict(encoder_dict)
 
     vocab_size = total_words
-    embedding_dim = 10 
 
-    dataset = SkipGramDataset(sentences_tokens, encoder_dict, window_size=3, num_neg_samples=5)
-    dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+    dataset = SkipGramDataset(sentences_tokens, encoder_dict, window_size=args.window_size, num_neg_samples=args.num_neg_samples)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
 
-    model = SkipGramModel(vocab_size, embedding_dim).to(device)
-    train(model, dataloader, epochs=5, lr=0.01)
+    model = SkipGramModel(vocab_size, args.embedding_dim).to(device)
+    train(model, dataloader, epochs=args.epochs, lr=args.learning_rate, log_every=args.log_every)
 
     # 在训练结束后保存模型参数
-    torch.save(model.center_embeds.state_dict(), 'embeds/center_embeds.pth')
-    torch.save(model.context_embeds.state_dict(), 'embeds/context_embeds.pth')
+    torch.save(model.center_embeds.state_dict(), 'embeds/skip_gram/center_embeds.pth')
+    torch.save(model.context_embeds.state_dict(), 'embeds/skip_gram/context_embeds.pth')
